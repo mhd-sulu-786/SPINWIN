@@ -1,0 +1,16 @@
+.campaign-box{ max-width:420px; margin:auto; background:#fff; border-radius:15px; padding:25px; box-shadow:0 10px 25px rgba(0,0,0,0.15); text-align:center;}
+.flex-row{ display:flex; align-items:center; }
+.flex-row span{ padding:12px; background:#eee; border-radius:8px 0 0 8px; border:1px solid #ccc; }
+.flex-row input{ border-radius:0 8px 8px 0; border-left:none; width:100%; padding:12px; }
+button{ cursor:pointer; font-weight:bold; padding:12px; border-radius:8px; margin:8px 0; width:100%; color:white; border:none; }
+#sendOtpBtn{ background:linear-gradient(to right,#ff6a00,#ff8c00);}
+#verifyOtpBtn{ background:linear-gradient(to right,#17b978,#28a745);}
+#submitBtn{ background:linear-gradient(to right,#4c6ef5,#5a8dee);}
+#spinBtn{ background:linear-gradient(to right,#f5af19,#f12711); font-size:20px; font-weight:bold; padding:15px; border-radius:12px; box-shadow:0 5px 15px rgba(0,0,0,0.2);}
+#spinArea{ display:none; margin-top:20px; padding:15px; border-top:1px solid #ddd; background:#fafafa; border-radius:12px;}
+#result{ margin-top:15px; font-size:18px; font-weight:bold; color:#ff3c00; }
+ #campaignForm{
+     display: flex;
+     flex-direction: column;
+     row-gap: 10px;
+ }

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./style.css"/>
+    <link rel="icon" href="/path/to/favicon.ico" type="image/x-icon">
+        <title>Document</title>
+</head>
+<body>
+
+<div class="campaign-box">
+  <h2>🎉 Spin & Win</h2>
+  <form id="campaignForm">
+    <div class="flex-row">
+      <span>+91</span>
+      <input type="text" id="phone" placeholder="10 digit mobile" maxlength="10">
+    </div>
+    <button type="button" id="sendOtpBtn" onclick="sendOTP()">Send OTP</button>
+    <input type="text" id="otp" placeholder="Enter OTP">
+    <button type="button" id="verifyOtpBtn" onclick="verifyOTP()">Verify OTP</button>
+    <hr>
+    <input type="text" id="name" placeholder="Full Name" >
+    <select id="branch" >
+      <option value="">Purchased Branch</option>
+      <option>Chennai</option>
+      <option>Bangalore</option>
+      <option>Coimbatore</option>
+      <option>Madurai</option>
+    </select>
+    <input type="text" id="invoice" placeholder="Invoice Number" >
+    <input type="number" id="amount" placeholder="Invoice Amount" >
+    
+    <input type="file" id="file" >
+    <button type="submit" id="submitBtn" >Submit & Play</button>
+  </form>
+  <div id="spinArea">
+    <h3>Tap To Spin</h3>
+    <button id="spinBtn">SPIN</button>
+    <p id="result"></p>
+  </div>
+</div>
+
+
+
+
+    <script>
+function sendOTP() {
+    let phone = document.getElementById("phone").value.trim();
+    if(phone.length!=10){ alert("Enter 10 digit phone"); return; }
+
+    fetch('http://localhost:3000/send-otp', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ phone })
+    })
+    .then(res=>res.json())
+    .then(data=>data.success ? alert("OTP Sent!") : alert(data.error))
+    .catch(err=>alert(err));
+}
+
+function verifyOTP() {
+    let phone = document.getElementById("phone").value.trim();
+    let otp = document.getElementById("otp").value.trim();
+
+    fetch('http://localhost:3000/verify-otp', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ phone, code: otp })
+    })
+    .then(res=>res.json())
+    .then(data=>{
+        if(data.success){
+            alert("Phone Verified!");
+            document.getElementById("name").disabled=false;
+            document.getElementById("branch").disabled=false;
+            document.getElementById("invoice").disabled=false;
+            document.getElementById("amount").disabled=false;
+            document.getElementById("file").disabled=false;
+            document.getElementById("submitBtn").disabled=false;
+        } else alert("Invalid OTP");
+    }).catch(err=>alert(err));
+}
+
+document.getElementById("campaignForm").onsubmit=function(e){
+    e.preventDefault();
+    document.getElementById("spinArea").style.display="block";
+}
+
+document.getElementById("spinBtn").onclick=function(){
+    let prizes=["₹100 Voucher","Free Tempered Glass","5% Discount","Better Luck Next Time","Mobile Cover","10% Discount"];
+    let prize=prizes[Math.floor(Math.random()*prizes.length)];
+    document.getElementById("result").innerHTML="Processing...";
+    uploadFileAndSend(prize);
+}
+
+
+function uploadFileAndSend(prize){
+    let file=document.getElementById("file").files[0];
+    if(!file){ alert("Upload your invoice"); return; }
+    let reader=new FileReader();
+    reader.onload=function(){ sendData(prize,reader.result); }
+    reader.readAsDataURL(file);
+}
+
+function sendData(prize,filedata){
+    const SHEET_API="https://script.google.com/macros/s/AKfycbzvGVkVElBDnKtMHk9SPvbjXfuBt7E9MK0fs7dXAiW9t6QGsaF3Jo3Xh8dG5jWA1Y3BMA/exec";
+    let formData=new FormData();
+    formData.append("action","submit");
+    formData.append("name",document.getElementById("name").value);
+    formData.append("phone","+91"+document.getElementById("phone").value);
+    formData.append("branch",document.getElementById("branch").value);
+    formData.append("invoice",document.getElementById("invoice").value);
+    formData.append("amount",document.getElementById("amount").value);
+    formData.append("file",filedata);
+    formData.append("prize",prize);
+
+    fetch(SHEET_API,{method:"POST",body:formData})
+    .then(res=>res.text())
+    .then(()=>{document.getElementById("result").innerHTML="🎁 You Won: "+prize;})
+    .catch(err=>alert("Error submitting data"));
+}
+</script>
+</body>
+</html>
