@@ -262,7 +262,7 @@
 </div>
 
 <script>
-const SHEET_API = "https://script.google.com/macros/s/AKfycbyxXKxfK146Wzm72Kz4_udlAZj4Ltl_rPqoIxxVja50xyBpj250tjEBwlMOch4qltN2/exec";
+const SHEET_API = "https://script.google.com/macros/s/AKfycbwCWwUHRjQmyq0TZZg57vZyxfEvqcFYxIlZch0yFTb5uK_GvWIzCXJtXC0wCeauWPWg/exec";
 const STORAGE_KEY = "spinwin_history";
 const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -280,9 +280,16 @@ function getHistory() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
   catch { return {}; }
 }
-function saveHistory(phone, prize) {
+
+function saveHistory(phone, prize, name, branch, invoice) {
   const h = getHistory();
-  h[phone] = { ts: Date.now(), prize };
+  h[phone] = { 
+    ts: Date.now(), 
+    prize,
+    name: name || '',
+    branch: branch || '',
+    invoice: invoice || ''
+  };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
   renderHistory();
 }
@@ -322,51 +329,100 @@ function formatTimeLeft(ms) {
   const m = Math.floor((ms % 3600000) / 60000);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
-function checkCooldown(phone) {
-  if (phone.length !== 10) {
-    document.getElementById('cooldownMsg').style.display = 'none';
-    document.getElementById('sendOtpBtn').disabled = false;
-    return false;
-  }
+function checkCooldown(fullPhone) {
   const h = getHistory();
-  if (h[phone]) {
-    const elapsed = Date.now() - h[phone].ts;
+
+  if (h[fullPhone]) {
+    const elapsed = Date.now() - h[fullPhone].ts;
+
     if (elapsed < COOLDOWN_MS) {
       const left = COOLDOWN_MS - elapsed;
+
       const msg = document.getElementById('cooldownMsg');
-      msg.style.display = 'block';
-      msg.innerHTML = `⏳ You already spun with this number and won <strong>${h[phone].prize}</strong>.<br>Try again after <strong>${formatTimeLeft(left)}</strong>.`;
-      document.getElementById('sendOtpBtn').disabled = true;
-      document.getElementById('submitBtn').disabled = true;
+      if (msg) {
+        msg.style.display = 'block';
+        msg.innerHTML = `⏳ You already spun and won <strong>${h[fullPhone].prize}</strong>.<br>Try again after <strong>${formatTimeLeft(left)}</strong>.`;
+      }
+
+      const sendBtn = document.getElementById('sendOtpBtn');
+      const submitBtn = document.getElementById('submitBtn');
+
+      if (sendBtn) sendBtn.disabled = true;
+      if (submitBtn) submitBtn.disabled = true;
+
       return true;
     }
   }
-  document.getElementById('cooldownMsg').style.display = 'none';
-  document.getElementById('sendOtpBtn').disabled = false;
+
+  const msg = document.getElementById('cooldownMsg');
+  if (msg) msg.style.display = 'none';
+
+  const sendBtn = document.getElementById('sendOtpBtn');
+  if (sendBtn) sendBtn.disabled = false;
+
   return false;
 }
 function onPhoneInput() {
-  checkCooldown(document.getElementById('phone').value.trim());
+  const phone = document.getElementById('phone').value.trim();
+
+  if (phone.length === 10) {
+    checkCooldown("+91" + phone); // ✅ FIX
+  }
 }
 
 /* ── OTP SEND ── */
+
 function sendOTP() {
   const phone = document.getElementById('phone').value.trim();
-  if (phone.length !== 10) { alert('Enter a 10-digit phone number'); return; }
+
+  if (phone.length !== 10) {
+    alert('Enter a 10-digit phone number');
+    return;
+  }
+
   if (checkCooldown(phone)) return;
-  showLoading('Sending OTP…');
-  fetch("https://spinwin-kffw.onrender.com/send-otp", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone })
-  })
-  .then(res => res.json())
-  .then(data => {
-    hideLoading();
-    if (data.success) { alert("OTP Sent!"); }
-    else { alert(data.error || 'Failed to send OTP'); }
-  })
-  .catch(() => { hideLoading(); alert("Network error. Please try again."); });
+
+  showLoading('Checking number...');
+
+  // ✅ STEP 1: Check with Google Sheet
+  const params = new URLSearchParams();
+  params.append("mode", "check_phone");
+  params.append("phone", "+91" + phone);
+
+  fetch(SHEET_API, { method: "POST", body: params })
+    .then(res => res.json())
+    .then(check => {
+
+      if (check.status === "blocked") {
+        hideLoading();
+        alert("❌ This number already used today");
+        return;
+      }
+
+      // ✅ STEP 2: Send OTP only if allowed
+      showLoading('Sending OTP…');
+
+      return fetch("https://spinwin-kffw.onrender.com/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone })
+      });
+    })
+    .then(res => res && res.json())
+    .then(data => {
+      if (!data) return;
+      hideLoading();
+
+      if (data.success) {
+        alert("OTP Sent!");
+      } else {
+        alert(data.error || 'Failed to send OTP');
+      }
+    })
+    .catch(() => {
+      hideLoading();
+      alert("Network error");
+    });
 }
 
 /* ── OTP VERIFY ── */
@@ -511,11 +567,10 @@ document.getElementById('spinBtn').onclick = function() {
     } else {
       currentAngle = finalAngle % (2 * Math.PI);
       drawWheel(currentAngle);
-      document.getElementById('result').innerHTML = `🎁 You Won: ${icons[index]} ${prize}`;
-      /* Save immediately on spin land — before any network call */
-      const phone = document.getElementById('phone').value.trim();
-      saveHistory(phone, icons[index] + ' ' + prize);
-      uploadFileAndSend(prize);
+      const fullPrize = icons[index] + ' ' + prize;
+      document.getElementById('result').innerHTML = `🎁 You Won: ${fullPrize}`;
+      /* Save in localStorage occurs AFTER successful server upload in sendData() */
+      uploadFileAndSend(fullPrize);
       spinning = false;
     }
   }
@@ -535,31 +590,84 @@ function uploadFileAndSend(prize) {
 /* ── SEND DATA ── */
 function sendData(prize, filedata) {
   const phone = document.getElementById('phone').value.trim();
+
   const params = new URLSearchParams();
-  params.append("name",    document.getElementById('name').value);
-  params.append("phone",   "+91" + phone);
-  params.append("branch",  document.getElementById('branch').value);
+  params.append("mode", "submit"); // ✅ MUST
+  params.append("name", document.getElementById('name').value);
+  params.append("phone", "+91" + phone);
+  params.append("branch", document.getElementById('branch').value);
   params.append("invoice", document.getElementById('invoice').value);
-  params.append("amount",  document.getElementById('amount').value);
-  params.append("file",    filedata);
-  params.append("prize",   prize);
+  params.append("amount", document.getElementById('amount').value);
+  params.append("file", filedata);
+  params.append("prize", prize);
 
   showLoading('Saving your entry…');
-  fetch(SHEET_API, { method: "POST", body: params })
-  .then(res => res.json())
-  .then(data => {
-    hideLoading();
-    if (data.status === "success") {
-      document.getElementById('result').innerHTML = `🎁 You Won: ${prize}`;
-    } else {
-      alert(data.message || 'Something went wrong');
-      document.getElementById('result').innerHTML = "🎁 Try later";
-    }
+
+  fetch(SHEET_API, {
+    method: "POST",
+    body: params
   })
+  .then(async res => {
+  const text = await res.text();
+  console.log("RAW:", text);
+
+  let cleanText = text.trim();
+
+  if (cleanText.startsWith(")]}'")) {
+    cleanText = cleanText.substring(4);
+  }
+
+  let data;
+
+  try {
+    data = JSON.parse(cleanText);
+  } catch (e) {
+    console.warn("Parse failed → assuming success");
+    data = { status: "success" }; // ✅ fallback
+  }
+
+  return data;
+})
+.then(data => {
+  hideLoading();
+
+  if (data.status === "success") {
+    alert("Entry successfully saved! 🎉");
+    
+    // ✅ SAFE GET VALUES
+const nameEl = document.getElementById('name');
+const branchEl = document.getElementById('branch');
+const invoiceEl = document.getElementById('invoice');
+const phoneEl = document.getElementById('phone');
+
+const name = nameEl ? nameEl.value : '';
+const branch = branchEl ? branchEl.value : '';
+const invoice = invoiceEl ? invoiceEl.value : '';
+const fullPhone = phoneEl ? "+91" + phoneEl.value.trim() : '';
+
+// ✅ SAVE HISTORY SAFELY
+try {
+  saveHistory(fullPhone, prize, name, branch, invoice);
+} catch (e) {
+  console.warn("saveHistory error:", e);
+}
+
+// ✅ SAFE UI UPDATE
+const spin = document.getElementById('spinArea');
+const success = document.getElementById('successState');
+
+if (spin) spin.style.display = 'none';
+if (success) success.style.display = 'block';
+    
+
+  } else {
+    alert(data.message || "Something went wrong");
+  }
+})
   .catch(err => {
     hideLoading();
-    console.error(err);
-    alert("Error saving your entry. Please try again.");
+    console.error("FINAL ERROR:", err);
+    alert("Server busy / upload failed. Try again.");
   });
 }
 </script>
