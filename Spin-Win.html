@@ -1,124 +1,566 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="./style.css"/>
-    <link rel="icon" href="/path/to/favicon.ico" type="image/x-icon">
-        <title>Document</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spin & Win</title>
+<style>
+ 
+  body {
+    font-family: Arial, sans-serif;
+    background: #f0f2f5;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 30px 16px 40px;
+  }
+ 
+  /* ── LOADING OVERLAY ── */
+  #loadingOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+  }
+  #loadingOverlay.active { display: flex; }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 4px solid rgba(255,255,255,0.2);
+    border-top-color: #ff6a00;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner-text { font-size: 15px; color: #fff; }
+ 
+  /* ── CAMPAIGN BOX ── */
+  .campaign-box {
+    max-width: 420px;
+    width: 100%;
+    margin: 25px auto 0;
+    background: #fff;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    text-align: center;
+  }
+ 
+  h2 { font-size: 22px; color: #333; margin-bottom: 18px; }
+ 
+  /* ── FORM ── */
+  #campaignForm { display: flex; flex-direction: column; row-gap: 10px; }
+ 
+  .flex-row { display: flex; align-items: center; }
+  .flex-row span {
+    padding: 12px;
+    background: #eee;
+    border-radius: 8px 0 0 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .flex-row input {
+    border-radius: 0 8px 8px 0 !important;
+    border-left: none !important;
+  }
+ 
+  input, select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+    outline: none;
+    background: #fff;
+    color: #333;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: #ff6a00; }
+  input::placeholder { color: #aaa; }
+  input:disabled, select:disabled { opacity: 0.45; cursor: not-allowed; background: #f5f5f5; }
+ 
+  /* ── COOLDOWN BANNER ── */
+  #cooldownMsg {
+    display: none;
+    background: #fff4f0;
+    border: 1px solid #ffb89a;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #c0390a;
+    text-align: center;
+    line-height: 1.5;
+  }
+ 
+  /* ── BUTTONS ── */
+  button {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 12px;
+    border-radius: 8px;
+    margin: 0;
+    width: 100%;
+    color: white;
+    border: none;
+    font-size: 14px;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  button:active { transform: scale(0.98); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+ 
+  #sendOtpBtn  { background: linear-gradient(to right, #ff6a00, #ff8c00); }
+  #verifyOtpBtn{ background: linear-gradient(to right, #17b978, #28a745); }
+  #submitBtn   { background: linear-gradient(to right, #4c6ef5, #5a8dee); }
+ 
+  hr { border: none; border-top: 1px solid #e5e5e5; margin: 4px 0; }
+ 
+  input[type="file"] { padding: 9px 12px; font-size: 13px; color: #555; cursor: pointer; }
+  input[type="file"]::-webkit-file-upload-button {
+    background: linear-gradient(to right, #ff6a00, #ff8c00);
+    color: white; border: none; padding: 6px 12px;
+    border-radius: 6px; font-size: 12px; font-weight: bold;
+    cursor: pointer; margin-right: 8px;
+  }
+ 
+  /* ── SPIN AREA ── */
+  #spinArea { display: none; margin-top: 20px; padding: 15px; border-top: 1px solid #ddd; background: #fafafa; border-radius: 12px; }
+ 
+  .lucky-box { padding: 10px 0; color: #333; text-align: center; }
+  .lucky-box h2 { font-size: 20px; margin-bottom: 4px; color: #333; }
+  .lucky-box > p { font-size: 13px; color: #777; margin-bottom: 10px; }
+ 
+  /* ── WHEEL ── */
+  .wheel-box {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    margin: 20px auto;
+  }
+ 
+  .pointer {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 18px solid transparent;
+    border-right: 18px solid transparent;
+    border-bottom: 30px solid red;
+    z-index: 10;
+  }
+ 
+  #wheelCanvas {
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    display: block;
+    border: 10px solid #fff;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  }
+ 
+  #spinBtn {
+    padding: 15px 40px;
+    font-size: 18px;
+    border: none;
+    border-radius: 30px;
+    background: linear-gradient(to right, orange, red);
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    width: auto;
+    margin: 0 auto;
+    display: inline-block;
+  }
+ 
+  #result {
+    margin-top: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #ff3c00;
+    min-height: 26px;
+  }
+ 
+  /* ── HISTORY PANEL ── */
+  #historyPanel { margin-top: 20px; border-top: 1px solid #ddd; padding-top: 14px; text-align: left; }
+  #historyPanel .hist-label { font-size: 12px; font-weight: bold; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .hist-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px; background: #f5f5f5; border-radius: 10px;
+    margin-bottom: 8px; gap: 10px; flex-wrap: wrap;
+    border: 1px solid #e8e8e8;
+  }
+  .hist-phone { font-size: 13px; font-weight: bold; color: #333; margin: 0; }
+  .hist-date  { font-size: 11px; color: #999; margin: 2px 0 0; }
+  .hist-prize { font-size: 13px; font-weight: bold; color: #ff6a00; margin: 0; }
+  .hist-cool  { font-size: 11px; }
+  .cool-wait  { color: #e74c3c; }
+  .cool-ready { color: #27ae60; }
+
+</style>
 </head>
 <body>
 
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <p class="spinner-text">Sending OTP…</p>
+</div>
+
 <div class="campaign-box">
-  <h2>🎉 Spin & Win</h2>
+  <h2>🎉 Spin &amp; Win</h2>
   <form id="campaignForm">
     <div class="flex-row">
       <span>+91</span>
-      <input type="text" id="phone" placeholder="10 digit mobile" maxlength="10">
+      <input type="text" id="phone" placeholder="10 digit mobile" maxlength="10" oninput="onPhoneInput()">
     </div>
+    <div id="cooldownMsg"></div>
     <button type="button" id="sendOtpBtn" onclick="sendOTP()">Send OTP</button>
     <input type="text" id="otp" placeholder="Enter OTP">
     <button type="button" id="verifyOtpBtn" onclick="verifyOTP()">Verify OTP</button>
     <hr>
-    <input type="text" id="name" placeholder="Full Name" >
-    <select id="branch" >
+    <input type="text" id="name" placeholder="Full Name" disabled>
+    <select id="branch" disabled>
       <option value="">Purchased Branch</option>
       <option>Chennai</option>
       <option>Bangalore</option>
       <option>Coimbatore</option>
       <option>Madurai</option>
     </select>
-    <input type="text" id="invoice" placeholder="Invoice Number" >
-    <input type="number" id="amount" placeholder="Invoice Amount" >
-    
-    <input type="file" id="file" >
-    <button type="submit" id="submitBtn" >Submit & Play</button>
+    <input type="text" id="invoice" placeholder="Invoice Number" disabled>
+    <input type="number" id="amount" placeholder="Invoice Amount" disabled>
+    <input type="file" id="file" disabled>
+    <button type="submit" id="submitBtn" disabled>Submit &amp; Play</button>
   </form>
+
   <div id="spinArea">
-    <h3>Tap To Spin</h3>
-    <button id="spinBtn">SPIN</button>
-    <p id="result"></p>
+    <div class="lucky-box">
+      <h2>🎡 Lucky Spin 🎡</h2>
+      <p>Tap spin to reveal your reward</p>
+      <div class="wheel-box">
+        <div class="pointer"></div>
+        <canvas id="wheelCanvas" width="280" height="280"></canvas>
+      </div>
+      <button id="spinBtn">SPIN NOW</button>
+      <p id="result"></p>
+    </div>
+  </div>
+
+  <!-- HISTORY PANEL -->
+  <div id="historyPanel" style="display:none; margin-top:20px; border-top:1px solid rgba(255,255,255,0.07); padding-top:16px;">
+    <p style="font-size:13px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Past Spins</p>
+    <div id="historyList"></div>
   </div>
 </div>
 
+<script>
+const SHEET_API = "https://script.google.com/macros/s/AKfycbyxXKxfK146Wzm72Kz4_udlAZj4Ltl_rPqoIxxVja50xyBpj250tjEBwlMOch4qltN2/exec";
+const STORAGE_KEY = "spinwin_history";
+const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+/* ── LOADING HELPERS ── */
+function showLoading(msg) {
+  document.querySelector('.spinner-text').textContent = msg || 'Please wait…';
+  document.getElementById('loadingOverlay').classList.add('active');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.remove('active');
+}
 
+/* ── COOLDOWN HELPERS ── */
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveHistory(phone, prize) {
+  const h = getHistory();
+  h[phone] = { ts: Date.now(), prize };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
+  renderHistory();
+}
 
-    <script>
+function renderHistory() {
+  const h = getHistory();
+  const keys = Object.keys(h);
+  const panel = document.getElementById('historyPanel');
+  const list  = document.getElementById('historyList');
+  if (!keys.length) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  list.innerHTML = keys.map(phone => {
+    const { ts, prize } = h[phone];
+    const date = new Date(ts).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
+    const elapsed = Date.now() - ts;
+    const cooldownLeft = COOLDOWN_MS - elapsed;
+    const status = cooldownLeft > 0
+      ? `<span style="color:var(--primary);font-size:11px;">⏳ ${formatTimeLeft(cooldownLeft)} left</span>`
+      : `<span style="color:var(--accent);font-size:11px;">✅ Can spin again</span>`;
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--card);border-radius:10px;margin-bottom:8px;gap:10px;flex-wrap:wrap;">
+        <div>
+          <p style="font-size:13px;font-weight:700;margin:0;">📱 +91${phone}</p>
+          <p style="font-size:12px;color:var(--muted);margin:2px 0 0;">${date}</p>
+        </div>
+        <div style="text-align:right;">
+          <p style="font-size:13px;font-weight:700;color:var(--secondary);margin:0;">${prize}</p>
+          ${status}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+renderHistory();
+function formatTimeLeft(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+function checkCooldown(phone) {
+  if (phone.length !== 10) {
+    document.getElementById('cooldownMsg').style.display = 'none';
+    document.getElementById('sendOtpBtn').disabled = false;
+    return false;
+  }
+  const h = getHistory();
+  if (h[phone]) {
+    const elapsed = Date.now() - h[phone].ts;
+    if (elapsed < COOLDOWN_MS) {
+      const left = COOLDOWN_MS - elapsed;
+      const msg = document.getElementById('cooldownMsg');
+      msg.style.display = 'block';
+      msg.innerHTML = `⏳ You already spun with this number and won <strong>${h[phone].prize}</strong>.<br>Try again after <strong>${formatTimeLeft(left)}</strong>.`;
+      document.getElementById('sendOtpBtn').disabled = true;
+      document.getElementById('submitBtn').disabled = true;
+      return true;
+    }
+  }
+  document.getElementById('cooldownMsg').style.display = 'none';
+  document.getElementById('sendOtpBtn').disabled = false;
+  return false;
+}
+function onPhoneInput() {
+  checkCooldown(document.getElementById('phone').value.trim());
+}
+
+/* ── OTP SEND ── */
 function sendOTP() {
-    let phone = document.getElementById("phone").value.trim();
-    if(phone.length!=10){ alert("Enter 10 digit phone"); return; }
-
-    fetch('http://localhost:3000/send-otp', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ phone })
-    })
-    .then(res=>res.json())
-    .then(data=>data.success ? alert("OTP Sent!") : alert(data.error))
-    .catch(err=>alert(err));
+  const phone = document.getElementById('phone').value.trim();
+  if (phone.length !== 10) { alert('Enter a 10-digit phone number'); return; }
+  if (checkCooldown(phone)) return;
+  showLoading('Sending OTP…');
+  fetch("https://spinwin-kffw.onrender.com/send-otp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone })
+  })
+  .then(res => res.json())
+  .then(data => {
+    hideLoading();
+    if (data.success) { alert("OTP Sent!"); }
+    else { alert(data.error || 'Failed to send OTP'); }
+  })
+  .catch(() => { hideLoading(); alert("Network error. Please try again."); });
 }
 
+/* ── OTP VERIFY ── */
 function verifyOTP() {
-    let phone = document.getElementById("phone").value.trim();
-    let otp = document.getElementById("otp").value.trim();
-
-    fetch('http://localhost:3000/verify-otp', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ phone, code: otp })
-    })
-    .then(res=>res.json())
-    .then(data=>{
-        if(data.success){
-            alert("Phone Verified!");
-            document.getElementById("name").disabled=false;
-            document.getElementById("branch").disabled=false;
-            document.getElementById("invoice").disabled=false;
-            document.getElementById("amount").disabled=false;
-            document.getElementById("file").disabled=false;
-            document.getElementById("submitBtn").disabled=false;
-        } else alert("Invalid OTP");
-    }).catch(err=>alert(err));
+  const phone = document.getElementById('phone').value.trim();
+  const otp = document.getElementById('otp').value.trim();
+  showLoading('Verifying OTP…');
+  fetch("https://spinwin-kffw.onrender.com/verify-otp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, code: otp })
+  })
+  .then(res => res.json())
+  .then(data => {
+    hideLoading();
+    if (data.success) {
+      alert("Phone Verified ✅");
+      ['name','branch','invoice','amount','file','submitBtn'].forEach(id => {
+        document.getElementById(id).disabled = false;
+      });
+    } else {
+      alert("Invalid OTP. Please try again.");
+    }
+  })
+  .catch(() => { hideLoading(); alert("Network error. Please try again."); });
 }
 
-document.getElementById("campaignForm").onsubmit=function(e){
-    e.preventDefault();
-    document.getElementById("spinArea").style.display="block";
+/* ── FORM SUBMIT ── */
+document.getElementById('campaignForm').onsubmit = function(e) {
+  e.preventDefault();
+  document.getElementById('spinArea').style.display = 'block';
+  document.getElementById('spinArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+/* ── WHEEL CANVAS DRAW ── */
+const prizes  = ["TWS","Bottle","Better Luck","Car","Scooty","Fridge","Washing","TV","Earphone","Speaker"];
+const icons   = ["🎧","🍶","😅","🚗","🛵","❄️","🫧","📺","🎵","🔊"];
+const colors  = ["#e74c3c","#e67e22","#7f8c8d","#8e44ad","#2980b9","#27ae60","#16a085","#d35400","#c0392b","#1abc9c"];
+const N       = prizes.length;
+const ARC     = (2 * Math.PI) / N;
+let   currentAngle = 0;
+
+function drawWheel(rotationRad) {
+  const canvas = document.getElementById('wheelCanvas');
+  const ctx    = canvas.getContext('2d');
+  const cx = canvas.width / 2, cy = canvas.height / 2, r = cx - 4;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (let i = 0; i < N; i++) {
+    const start = rotationRad + i * ARC;
+    const end   = start + ARC;
+    const mid   = start + ARC / 2;
+
+    /* slice */
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    /* label — icon + name */
+    const tx = cx + (r * 0.62) * Math.cos(mid);
+    const ty = cy + (r * 0.62) * Math.sin(mid);
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.rotate(mid + Math.PI / 2);
+
+    ctx.font = 'bold 11px Nunito, sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 3;
+
+    /* icon line */
+    ctx.font = '14px serif';
+    ctx.fillText(icons[i], 0, -9);
+    /* name line */
+    ctx.font = 'bold 10px Nunito, sans-serif';
+    ctx.fillText(prizes[i], 0, 7);
+
+    ctx.restore();
+  }
+
+  /* outer ring */
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  /* center hub */
+  ctx.beginPath();
+  ctx.arc(cx, cy, 26, 0, 2 * Math.PI);
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fill();
+  ctx.strokeStyle = '#FFD166';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.font = 'bold 9px Baloo\\ 2, cursive';
+  ctx.fillStyle = '#FFD166';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('SPIN', cx, cy);
 }
 
-document.getElementById("spinBtn").onclick=function(){
-    let prizes=["₹100 Voucher","Free Tempered Glass","5% Discount","Better Luck Next Time","Mobile Cover","10% Discount"];
-    let prize=prizes[Math.floor(Math.random()*prizes.length)];
-    document.getElementById("result").innerHTML="Processing...";
-    uploadFileAndSend(prize);
+drawWheel(0);
+
+/* ── SPIN ── */
+let spinning = false;
+let animId   = null;
+
+document.getElementById('spinBtn').onclick = function() {
+  if (spinning) return;
+  spinning = true;
+
+  const index    = Math.floor(Math.random() * N);
+  const prize    = prizes[index];
+  /* pointer is at top (−π/2). We want segment[index] mid to land there. */
+  const targetAngle = -Math.PI / 2 - (index * ARC + ARC / 2);
+  const totalSpin   = 10 * Math.PI + ((targetAngle - currentAngle) % (2 * Math.PI));
+  const finalAngle  = currentAngle + totalSpin;
+  const duration    = 4000;
+  const startAngle  = currentAngle;
+  const startTime   = performance.now();
+
+  document.getElementById('result').innerHTML = '🌀 Spinning…';
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const t       = Math.min(elapsed / duration, 1);
+    const angle   = startAngle + totalSpin * easeOut(t);
+    drawWheel(angle);
+    if (t < 1) {
+      animId = requestAnimationFrame(animate);
+    } else {
+      currentAngle = finalAngle % (2 * Math.PI);
+      drawWheel(currentAngle);
+      document.getElementById('result').innerHTML = `🎁 You Won: ${icons[index]} ${prize}`;
+      /* Save immediately on spin land — before any network call */
+      const phone = document.getElementById('phone').value.trim();
+      saveHistory(phone, icons[index] + ' ' + prize);
+      uploadFileAndSend(prize);
+      spinning = false;
+    }
+  }
+
+  animId = requestAnimationFrame(animate);
+};
+
+/* ── FILE UPLOAD ── */
+function uploadFileAndSend(prize) {
+  const file = document.getElementById('file').files[0];
+  if (!file) { alert("Please upload your invoice"); return; }
+  const reader = new FileReader();
+  reader.onload = function(e) { sendData(prize, e.target.result); };
+  reader.readAsDataURL(file);
 }
 
+/* ── SEND DATA ── */
+function sendData(prize, filedata) {
+  const phone = document.getElementById('phone').value.trim();
+  const params = new URLSearchParams();
+  params.append("name",    document.getElementById('name').value);
+  params.append("phone",   "+91" + phone);
+  params.append("branch",  document.getElementById('branch').value);
+  params.append("invoice", document.getElementById('invoice').value);
+  params.append("amount",  document.getElementById('amount').value);
+  params.append("file",    filedata);
+  params.append("prize",   prize);
 
-function uploadFileAndSend(prize){
-    let file=document.getElementById("file").files[0];
-    if(!file){ alert("Upload your invoice"); return; }
-    let reader=new FileReader();
-    reader.onload=function(){ sendData(prize,reader.result); }
-    reader.readAsDataURL(file);
-}
-
-function sendData(prize,filedata){
-    const SHEET_API="https://script.google.com/macros/s/AKfycbzvGVkVElBDnKtMHk9SPvbjXfuBt7E9MK0fs7dXAiW9t6QGsaF3Jo3Xh8dG5jWA1Y3BMA/exec";
-    let formData=new FormData();
-    formData.append("action","submit");
-    formData.append("name",document.getElementById("name").value);
-    formData.append("phone","+91"+document.getElementById("phone").value);
-    formData.append("branch",document.getElementById("branch").value);
-    formData.append("invoice",document.getElementById("invoice").value);
-    formData.append("amount",document.getElementById("amount").value);
-    formData.append("file",filedata);
-    formData.append("prize",prize);
-
-    fetch(SHEET_API,{method:"POST",body:formData})
-    .then(res=>res.text())
-    .then(()=>{document.getElementById("result").innerHTML="🎁 You Won: "+prize;})
-    .catch(err=>alert("Error submitting data"));
+  showLoading('Saving your entry…');
+  fetch(SHEET_API, { method: "POST", body: params })
+  .then(res => res.json())
+  .then(data => {
+    hideLoading();
+    if (data.status === "success") {
+      document.getElementById('result').innerHTML = `🎁 You Won: ${prize}`;
+    } else {
+      alert(data.message || 'Something went wrong');
+      document.getElementById('result').innerHTML = "🎁 Try later";
+    }
+  })
+  .catch(err => {
+    hideLoading();
+    console.error(err);
+    alert("Error saving your entry. Please try again.");
+  });
 }
 </script>
 </body>
